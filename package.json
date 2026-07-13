@@ -1,6 +1,6 @@
 {
   "name": "@ragfly/sdk",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "RAGfly TypeScript/JavaScript SDK — retrieval infrastructure for your AI agents",
   "type": "module",
   "main": "./dist/index.js",

@@ -6,6 +6,7 @@
  * que corre en Node 18+, navegador, Vercel Edge y Cloudflare Workers.
  */
 
+import { CodeTranslator } from "./codes.js";
 import { RAGflyError } from "./errors.js";
 import type {
   AskChunk,
@@ -17,8 +18,11 @@ import type {
 
 const DEFAULT_BASE_URL = "https://api.ragfly.ai";
 const DEFAULT_TIMEOUT_MS = 60_000;
-/** Función de interfaz por defecto para `ask()` (define el modelo LLM de la conversación). */
-const DEFAULT_FUNCION = "CHAT-USUARIO";
+/**
+ * Default interface function for `ask()` (sets the conversation's LLM model).
+ * English public code; the SDK translates it to the internal code on the wire.
+ */
+const DEFAULT_FUNCION = "CHAT-USER";
 
 export interface RAGflyOptions {
   /** API key de RAGfly (formato `slm_live_...`). Generala en app.ragfly.ai → Settings → API Keys. */
@@ -42,9 +46,9 @@ export interface AskOptions {
   conversationId?: number;
   stream?: boolean;
   /**
-   * Código de la función de interfaz que define el modelo LLM de la conversación.
-   * Default: `CHAT-USUARIO` (la función "Conversa con tus documentos"). Solo se usa
-   * al crear una conversación nueva (cuando no se pasa `conversationId`).
+   * Interface-function code that sets the conversation's LLM model.
+   * Default: `CHAT-USER` (the "Chat with your documents" function). Only used when
+   * creating a new conversation (i.e. when `conversationId` is not given).
    */
   codigoFuncion?: string;
 }
@@ -54,16 +58,18 @@ export class RAGfly {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
+  /** Public-code translator: English on the SDK surface, internal on the wire. */
+  private readonly codes: CodeTranslator;
 
   /**
    * @example
    * const client = new RAGfly({ apiKey: "slm_live_..." });
-   * const resp = await client.ask("¿Cuáles son las ventas de Q1?");
+   * const resp = await client.ask("What were Q1 sales?");
    * console.log(resp.answer);
    */
   constructor(options: RAGflyOptions) {
     if (!options?.apiKey) {
-      throw new RAGflyError("apiKey es requerido");
+      throw new RAGflyError("apiKey is required");
     }
     this.apiKey = options.apiKey;
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
@@ -71,10 +77,25 @@ export class RAGfly {
     const f = options.fetch ?? globalThis.fetch;
     if (typeof f !== "function") {
       throw new RAGflyError(
-        "No hay `fetch` disponible. Usá Node 18+ o pasá `fetch` en las opciones.",
+        "No `fetch` available. Use Node 18+ or pass `fetch` in the options.",
       );
     }
     this.fetchImpl = f.bind(globalThis);
+    this.codes = new CodeTranslator(() => this.fetchCodeMap());
+  }
+
+  /**
+   * Fetch the public-code map (internal → English) from the backend. Used by the
+   * code translator; the map is cached after the first call.
+   */
+  private async fetchCodeMap(): Promise<Record<string, Record<string, string>>> {
+    const resp = await this.doFetch(
+      "/catalogo/public-codes?domains=status,doc_type,function",
+      { method: "GET" },
+    );
+    await this.raiseForStatus(resp);
+    const data = (await resp.json()) as { domains?: Record<string, Record<string, string>> };
+    return data.domains ?? {};
   }
 
   // ── Internos ───────────────────────────────────────────────────────────────
@@ -93,6 +114,11 @@ export class RAGfly {
   /**
    * `fetch` con timeout. El timer se cancela en cuanto llegan los headers de
    * respuesta, de modo que la lectura del body en streaming no se aborta.
+   *
+   * Nota (h.218): la API `fetch` no expone un connect-timeout separado (a
+   * diferencia de httpx en el SDK Python). Este timer único acota
+   * conexión + tiempo-hasta-headers, que es el equivalente práctico; separar
+   * ambas fases requeriría bajar a la API de sockets de cada runtime.
    */
   private async doFetch(path: string, init: RequestInit): Promise<Response> {
     const controller = new AbortController();
@@ -125,11 +151,12 @@ export class RAGfly {
     throw new RAGflyError(detail, resp.status);
   }
 
-  /** Crea una conversación nueva y devuelve su id. */
+  /** Create a new conversation and return its id. */
   private async getOrCreateConversation(codigoFuncion: string): Promise<number> {
+    const codigoInterno = await this.codes.toInternal("function", codigoFuncion);
     const resp = await this.doFetch("/interfaz/conversaciones", {
       method: "POST",
-      body: JSON.stringify({ titulo: "SDK", codigo_funcion: codigoFuncion }),
+      body: JSON.stringify({ titulo: "SDK", codigo_funcion: codigoInterno }),
     });
     await this.raiseForStatus(resp);
     const data = (await resp.json()) as { id_conversacion: number };
@@ -139,7 +166,7 @@ export class RAGfly {
   // ── API pública ──────────────────────────────────────────────────────────
 
   /**
-   * Búsqueda semántica híbrida (vector + léxico + rerank).
+   * Hybrid semantic search (vector + lexical + rerank).
    */
   async search(query: string, options: SearchOptions = {}): Promise<SearchResult> {
     const payload: Record<string, unknown> = {
@@ -279,22 +306,51 @@ export class RAGfly {
     return { answer: parts.join(""), conversationId: convId, messageId: null };
   }
 
-  /** Lista documentos del corpus con paginación. */
+  /**
+   * List documents in the corpus with pagination.
+   *
+   * `status` filters by processing state in English — e.g. `VECTORIZED`, `SCANNED`,
+   * `CHUNKED`, `LOADED`. Use `VECTORIZED` to list only searchable documents.
+   * `estado` is a deprecated Spanish alias of `status` (kept for compatibility).
+   */
   async listDocuments(
-    options: { page?: number; pageSize?: number; estado?: string } = {},
+    options: { page?: number; pageSize?: number; status?: string; estado?: string } = {},
   ): Promise<Record<string, unknown>> {
-    // El backend (GET /documentos/paginado) espera page/limit/codigo_estado_doc.
-    // FastAPI ignora params desconocidos, así que pagina/limite/estado se
-    // traducían en "sin filtro, 50 por defecto".
+    // The REST API (GET /documentos/paginado) speaks internal codes; translate the
+    // English public state on the way in and the returned codes on the way out.
+    const status = options.status ?? options.estado;
     const params = new URLSearchParams();
     params.set("page", String(options.page ?? 1));
     params.set("limit", String(options.pageSize ?? 20));
-    if (options.estado) params.set("codigo_estado_doc", options.estado);
+    if (status) {
+      const interno = await this.codes.toInternal("status", status);
+      if (interno) params.set("codigo_estado_doc", interno);
+    }
 
     const resp = await this.doFetch(`/documentos/paginado?${params.toString()}`, {
       method: "GET",
     });
     await this.raiseForStatus(resp);
-    return (await resp.json()) as Record<string, unknown>;
+    const data = (await resp.json()) as Record<string, any>;
+    return this.translateDocuments(data);
+  }
+
+  /**
+   * Translate internal catalog codes to their English public alias in a documents
+   * response (state + document type of every row).
+   */
+  private async translateDocuments(data: Record<string, any>): Promise<Record<string, unknown>> {
+    if (!data || typeof data !== "object") return data;
+    const rows = (data.items ?? data.documentos ?? data.resultados) as any[] | undefined;
+    for (const doc of rows ?? []) {
+      if (!doc || typeof doc !== "object") continue;
+      if (doc.codigo_estado_doc) {
+        doc.codigo_estado_doc = await this.codes.toEnglish("status", doc.codigo_estado_doc);
+      }
+      if (doc.codigo_tipo_documento) {
+        doc.codigo_tipo_documento = await this.codes.toEnglish("doc_type", doc.codigo_tipo_documento);
+      }
+    }
+    return data;
   }
 }
