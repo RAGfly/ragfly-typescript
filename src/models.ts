@@ -47,3 +47,26 @@ export interface AskResponse {
   conversationId: number;
   messageId?: number | null;
 }
+
+export interface AgentLayer {
+  code: string;
+  name: string;
+  sha256: string;
+}
+
+export interface AgentTool {
+  operation: string;
+  publicName: string;
+  inputSchema: Record<string, unknown>;
+  readOnly: boolean;
+}
+
+export interface AgentContext {
+  functionProfile: "chat_usuario" | "chat_soporte";
+  systemPrompt: string;
+  systemPromptHash: string;
+  layers: AgentLayer[];
+  identity: Record<string, unknown>;
+  tools: AgentTool[];
+  limits: Record<string, number>;
+}

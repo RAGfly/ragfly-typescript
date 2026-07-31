@@ -9,6 +9,7 @@
 import { CodeTranslator } from "./codes.js";
 import { RAGflyError } from "./errors.js";
 import type {
+  AgentContext,
   AskChunk,
   AskResponse,
   Chunk,
@@ -52,6 +53,10 @@ export interface AskOptions {
    */
   codigoFuncion?: string;
 }
+export interface AgentContextOptions {
+  functionProfile?: "chat_usuario" | "chat_soporte";
+}
+
 
 export class RAGfly {
   private readonly apiKey: string;
@@ -164,6 +169,48 @@ export class RAGfly {
   }
 
   // ── API pública ──────────────────────────────────────────────────────────
+
+  /** Return the authenticated prompt, identity and tools for an agent. */
+  async agentContext(options: AgentContextOptions = {}): Promise<AgentContext> {
+    const profile = options.functionProfile ?? "chat_usuario";
+    const resp = await this.doFetch(
+      `/agent/context?function_profile=${encodeURIComponent(profile)}`,
+      { method: "GET" },
+    );
+    await this.raiseForStatus(resp);
+    const data = (await resp.json()) as any;
+    return {
+      functionProfile: data.function_profile,
+      systemPrompt: data.system_prompt,
+      systemPromptHash: data.system_prompt_hash,
+      layers: data.layers ?? [],
+      identity: data.identity ?? {},
+      tools: (data.tools ?? []).map((tool: any) => ({
+        operation: tool.operation,
+        publicName: tool.public_name,
+        inputSchema: tool.input_schema ?? {},
+        readOnly: tool.read_only !== false,
+      })),
+      limits: data.limits ?? {},
+    };
+  }
+
+  /** Run one operation authorized by `agentContext()`. */
+  async runAgentTool(
+    publicName: string,
+    args: Record<string, unknown>,
+    options: AgentContextOptions = {},
+  ): Promise<Record<string, unknown>> {
+    const profile = options.functionProfile ?? "chat_usuario";
+    const path = `/agent/tools/${encodeURIComponent(publicName)}` +
+      `?function_profile=${encodeURIComponent(profile)}`;
+    const resp = await this.doFetch(path, {
+      method: "POST",
+      body: JSON.stringify({ arguments: args }),
+    });
+    await this.raiseForStatus(resp);
+    return (await resp.json()) as Record<string, unknown>;
+  }
 
   /**
    * Hybrid semantic search (vector + lexical + rerank).
