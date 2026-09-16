@@ -1,51 +1,40 @@
-/**
- * Modelos de respuesta del SDK de RAGfly.
- *
- * Espejo en TypeScript de los dataclasses del SDK Python (`ragfly/models.py`).
- * Los nombres se exponen en `camelCase` (idioma TS); el mapeo a los campos
- * `snake_case` del backend ocurre dentro del cliente.
- */
+/** Response models of the RAGfly SDK (mirror of the Python SDK `ragfly/models.py`). */
 
-/** Un fragmento (chunk) relevante recuperado de un documento. */
+export type Json = Record<string, unknown>;
+
 export interface Chunk {
-  texto: string;
-  similitud?: number | null;
-  scoreRerank?: number | null;
-  pagina?: number | null;
-  /** Campos adicionales devueltos por el backend que no están tipados arriba. */
-  extra: Record<string, unknown>;
+  text: string;
+  page?: number | null;
+  extra: Json;
 }
 
-/** Un documento del corpus con sus chunks relevantes. */
 export interface Document {
-  codigo: string;
-  nombre: string;
-  resumen?: string | null;
+  code: string | null;
+  name: string | null;
+  summary?: string | null;
+  location?: string | null;
   url?: string | null;
   rrfScore?: number | null;
-  similitudMax?: number | null;
+  maxSimilarity?: number | null;
+  rerankScore?: number | null;
+  /** How to open the original file (see `fs.how_to_open`). */
+  fs?: Json | null;
   chunks: Chunk[];
 }
 
-/** Resultado de una búsqueda semántica híbrida. */
 export interface SearchResult {
   query: string;
-  totalDocumentos: number;
+  totalDocuments: number;
   totalChunks: number;
-  duracionMs?: number | null;
+  durationMs?: number | null;
   documents: Document[];
 }
 
-/** Un token/fragmento del stream de respuesta (`ask` con `stream: true`). */
-export interface AskChunk {
-  delta: string;
-}
-
-/** Respuesta completa (no-streaming) de `ask`. */
 export interface AskResponse {
   answer: string;
-  conversationId: number;
-  messageId?: number | null;
+  conversationId: number | null;
+  /** Remaining fields of the answer (citations, usage, message id…). */
+  extra: Json;
 }
 
 export interface AgentLayer {
@@ -57,16 +46,41 @@ export interface AgentLayer {
 export interface AgentTool {
   operation: string;
   publicName: string;
-  inputSchema: Record<string, unknown>;
+  inputSchema: Json;
   readOnly: boolean;
 }
 
+export type FunctionProfile = "user_chat" | "support_chat";
+
 export interface AgentContext {
-  functionProfile: "chat_usuario" | "chat_soporte";
+  functionProfile: FunctionProfile;
   systemPrompt: string;
   systemPromptHash: string;
   layers: AgentLayer[];
-  identity: Record<string, unknown>;
+  identity: Json;
   tools: AgentTool[];
   limits: Record<string, number>;
+}
+
+export type OperationKind = "read" | "write" | "write_confirm";
+
+export interface OperationSummary {
+  code: string;
+  kind: OperationKind;
+  confirm_required: boolean;
+  functions: string[];
+}
+
+export interface OperationDetail extends OperationSummary {
+  input_schema: Json;
+  output_schema: Json | null;
+}
+
+export interface OperationResult {
+  code: string;
+  kind: OperationKind;
+  executed: boolean;
+  confirm_required?: boolean;
+  preview?: Json;
+  result?: unknown;
 }

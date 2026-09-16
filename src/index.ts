@@ -1,20 +1,20 @@
-export { RAGfly } from "./client.js";
-export type {
-  RAGflyOptions,
-  SearchOptions,
-  AskOptions,
-  AgentContextOptions,
-} from "./client.js";
+export { RAGfly, CLIENT_HEADER } from "./client.js";
+export type { RAGflyOptions } from "./client.js";
 export { RAGflyError } from "./errors.js";
 export type {
-  Chunk,
-  Document,
-  SearchResult,
-  AskChunk,
-  AskResponse,
   AgentContext,
   AgentLayer,
   AgentTool,
+  AskResponse,
+  Chunk,
+  Document,
+  FunctionProfile,
+  Json,
+  OperationDetail,
+  OperationKind,
+  OperationResult,
+  OperationSummary,
+  SearchResult,
 } from "./models.js";
 
-export const VERSION = "0.1.1";
+export const VERSION = "0.3.0";

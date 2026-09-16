@@ -1,20 +1,17 @@
 import { RAGfly } from "@ragfly/sdk";
 
-const client = new RAGfly({ apiKey: process.env.RAGFLY_API_KEY ?? "slm_live_..." });
+const client = new RAGfly({ apiKey: process.env.RAGFLY_API_KEY ?? "rf_..." });
 
-// Pregunta simple (RAG end-to-end)
-const resp = await client.ask("¿Cuáles son las ventas de Q1?");
+// RAG end to end
+const resp = await client.ask({ question: "What are the Q1 sales figures?" });
 console.log(resp.answer);
 
-// Streaming token a token
-process.stdout.write("\n--- streaming ---\n");
-for await (const chunk of client.ask("Resumí los contratos activos", { stream: true })) {
-  process.stdout.write(chunk.delta);
-}
-process.stdout.write("\n");
-
-// Búsqueda semántica (solo recuperación)
-const results = await client.search("contratos de mantenimiento", { limit: 5 });
+// Retrieval only
+const results = await client.search({ query: "maintenance contracts", limit: 5 });
 for (const doc of results.documents) {
-  console.log(doc.nombre, doc.similitudMax);
+  console.log(doc.name, doc.maxSimilarity);
 }
+
+// Operations of the RAGfly application
+const { operations } = await client.listOperations();
+console.log(operations.slice(0, 5).map((op) => `${op.code} (${op.kind})`));

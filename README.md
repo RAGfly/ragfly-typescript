@@ -1,6 +1,6 @@
 # RAGfly TypeScript SDK
 
-Official TypeScript/JavaScript client for [RAGfly](https://ragfly.ai) — retrieval infrastructure for your AI agents.
+Official TypeScript/JavaScript client for [RAGfly](https://ragfly.ai). It speaks the English REST `/v1` contract.
 
 Zero dependencies, native `fetch`. Runs on **Node 18+**, the **browser**, **Vercel Edge** and **Cloudflare Workers**.
 
@@ -15,47 +15,56 @@ npm install @ragfly/sdk
 ```ts
 import { RAGfly } from "@ragfly/sdk";
 
-const client = new RAGfly({ apiKey: "slm_live_..." });
+const client = new RAGfly({ apiKey: process.env.RAGFLY_API_KEY! });
 
-// Ask a question (RAG end-to-end)
-const resp = await client.ask("What are the Q1 sales figures?");
+// RAG end to end
+const resp = await client.ask({ question: "What are the Q1 sales figures?" });
 console.log(resp.answer);
 
-// Streaming
-for await (const chunk of client.ask("Summarize active contracts", { stream: true })) {
-  process.stdout.write(chunk.delta);
-}
-
-// Semantic search (retrieval only)
-const results = await client.search("maintenance contracts", { limit: 5 });
-for (const doc of results.documents) {
-  console.log(doc.nombre, doc.similitudMax);
-}
+// Retrieval only
+const results = await client.search({ query: "maintenance contracts", limit: 5 });
+for (const doc of results.documents) console.log(doc.name, doc.maxSimilarity);
 ```
 
-## API Keys
+Every method takes one options object with `camelCase` keys; the SDK sends the `snake_case` names of the REST contract.
 
-Generate an API key from [app.ragfly.ai](https://app.ragfly.ai) → Settings → API Keys.
-Pass it in the constructor, or load it from an env var:
+## Operations
+
+Everything the RAGfly application lets your user do is available as an operation, with the same permissions and audit as the web app.
 
 ```ts
-const client = new RAGfly({ apiKey: process.env.RAGFLY_API_KEY! });
+const { operations } = await client.listOperations();                 // what this key can run
+const detail = await client.getOperation({ code: "document_types.update" }); // input_schema / output_schema
+
+await client.runOperation({ code: "document_types.update", input: { code: "TDOC_...", name: "Invoices" } });
+
+// write_confirm operations (deletes, reverts, resets) need confirm: true
+const preview = await client.runOperation({ code: "document_types.delete", input: { code: "TDOC_..." } });
+// preview.executed === false
+await client.runOperation({ code: "document_types.delete", input: { code: "TDOC_..." }, confirm: true });
 ```
+
+## API keys
+
+Create an API key from [app.ragfly.ai](https://app.ragfly.ai) → API Keys. A key only works on `/v1`; creating or revoking keys needs a signed-in person.
 
 ## Methods
 
-| Method | Description |
-|--------|-------------|
-| `client.ask(question, { stream?, conversationId? })` | RAG end-to-end: retrieve + generate. `stream: true` → `AsyncGenerator<AskChunk>`, otherwise `Promise<AskResponse>` |
-| `client.askStream(question, conversationId?)` | Same as `ask(q, { stream: true })`, explicit |
-| `client.search(query, { limit?, minSimilitud?, codigoEntidad?, idEspacio? })` | Hybrid retrieval (vector + lexical + rerank) |
-| `client.listDocuments({ page?, pageSize?, estado? })` | List corpus documents |
+| Area | Methods |
+|------|---------|
+| Session and documents | `session`, `listDocuments`, `getDocument`, `documentEdges`, `search` |
+| Working spaces | `listSpaces`, `getSpace`, `refreshSpace`, `promoteSpace`, `composeSpaces`, `readSpace` |
+| Queue, catalog, skills | `queue`, `listRuns`, `catalog`, `getFunction`, `listSkills`, `getSkill`, `runSkill` |
+| Answers and agents | `ask`, `agentContext`, `runAgentTool` |
+| Organization | `getOrganization`, `updateOrganization`, `draftOrganization` |
+| Usage, conversations, processes | `getUsage`, `listConversations`, `deleteConversation`, `listProcesses`, `getProcess`, `updateProcess` |
+| Operations | `listOperations`, `getOperation`, `runOperation` |
 
 ## Options
 
 ```ts
 new RAGfly({
-  apiKey: "slm_live_...",
+  apiKey: "rf_...",
   baseUrl: "https://api.ragfly.ai", // default
   timeoutMs: 60000,                 // default
   fetch: customFetch,               // optional, defaults to globalThis.fetch
@@ -64,32 +73,19 @@ new RAGfly({
 
 ## Errors
 
-All non-2xx responses throw `RAGflyError` (with `.statusCode`):
+Every non-2xx response throws `RAGflyError` with `statusCode`, the public `code` (`NOT_FOUND`, `VALIDATION_ERROR`, …) and `details`:
 
 ```ts
 import { RAGflyError } from "@ragfly/sdk";
 
 try {
-  await client.ask("…");
+  await client.runOperation({ code: "document_types.update", input: {} });
 } catch (err) {
-  if (err instanceof RAGflyError) console.error(err.statusCode, err.message);
+  if (err instanceof RAGflyError) console.error(err.statusCode, err.code, err.details);
 }
 ```
 
-## Field naming
-
-The backend speaks `snake_case`; this SDK exposes `camelCase`. Mapping for reference:
-
-| Backend (`snake_case`) | SDK (`camelCase`) |
-|---|---|
-| `score_rerank` | `scoreRerank` |
-| `rrf_score` | `rrfScore` |
-| `similitud_max` | `similitudMax` |
-| `total_documentos` | `totalDocumentos` |
-| `total_chunks` | `totalChunks` |
-| `duracion_ms` | `duracionMs` |
-
-> Mirror of the [Python SDK](https://github.com/rufinocabreragaillard/ragfly-python) (`pip install ragfly`). Same surface, same auth, same backend.
+> Mirror of the [Python SDK](https://github.com/RAGfly/ragfly-python) (`pip install ragfly`). Both run the same parity cases (`tests/parity_cases.json`).
 
 ## Links
 
