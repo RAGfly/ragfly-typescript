@@ -4,6 +4,7 @@
   "client_header": {"name": "X-RAGfly-Client", "python": "sdk-python", "typescript": "sdk-typescript"},
   "cases": [
     {"method": "session", "args": {}, "request": {"method": "GET", "path": "/v1/session", "query": {}, "body": null}},
+    {"method": "set_active_entity", "args": {"entity_code": null}, "request": {"method": "POST", "path": "/v1/session/active-entity", "query": {}, "body": {"entity_code": null}}},
     {"method": "list_documents", "args": {"status": "VECTORIZED", "limit": 5, "page": 2}, "request": {"method": "GET", "path": "/v1/documents", "query": {"status": "VECTORIZED", "limit": "5", "page": "2"}, "body": null}},
     {"method": "get_document", "args": {"document_code": "DOC 1"}, "request": {"method": "GET", "path": "/v1/documents/DOC%201", "query": {}, "body": null}},
     {"method": "document_edges", "args": {"document_code": "D1", "neighbor_limit": 10}, "request": {"method": "GET", "path": "/v1/documents/D1/edges", "query": {"neighbor_limit": "10"}, "body": null}},

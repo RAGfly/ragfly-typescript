@@ -127,6 +127,13 @@ export class RAGfly {
     return this.request("GET", "/v1/session");
   }
 
+  /** Set an authorized entity focus; pass `null` to release it. */
+  setActiveEntity(opts: { entityCode: string | null }): Promise<Json> {
+    return this.request("POST", "/v1/session/active-entity", {}, {
+      entity_code: opts.entityCode,
+    });
+  }
+
   /** List documents. `status` in English, e.g. `VECTORIZED`. */
   listDocuments(opts: { status?: string; limit?: number; page?: number } = {}): Promise<Json> {
     return this.request("GET", "/v1/documents", { status: opts.status, limit: opts.limit ?? 20, page: opts.page ?? 1 });
