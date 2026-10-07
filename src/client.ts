@@ -47,6 +47,32 @@ function compact(values: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined && v !== null));
 }
 
+function toSearchResult(data: Json, query: string): SearchResult {
+  const documents: Document[] = ((data.documents as Json[]) ?? []).map((d) => ({
+    code: (d.code as string) ?? null,
+    name: (d.name as string) ?? null,
+    summary: d.summary as string | null,
+    location: d.location as string | null,
+    url: d.url as string | null,
+    rrfScore: d.rrf_score as number | null,
+    maxSimilarity: d.max_similarity as number | null,
+    rerankScore: d.rerank_score as number | null,
+    fs: d.fs as Json | null,
+    chunks: ((d.chunks as Json[]) ?? []).map((c) => ({
+      text: (c.text as string) ?? "",
+      page: c.page as number | null,
+      extra: (c.extra as Json) ?? {},
+    })),
+  }));
+  return {
+    query,
+    totalDocuments: (data.total_documents as number) ?? documents.length,
+    totalChunks: (data.total_chunks as number) ?? 0,
+    durationMs: data.duration_ms as number | null,
+    documents,
+  };
+}
+
 export class RAGfly {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -150,36 +176,34 @@ export class RAGfly {
   }
 
   /** Hybrid semantic search (vector + lexical). */
-  async search(opts: { query: string; limit?: number; minSimilarity?: number; entityCode?: string }): Promise<SearchResult> {
+  /** Hybrid semantic search (vector + lexical). `spaceId` limits it to one working space. */
+  async search(opts: { query: string; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
       limit: opts.limit ?? 10,
       min_similarity: opts.minSimilarity ?? 0,
       entity_code: opts.entityCode,
+      space_id: opts.spaceId,
     }))) ?? {};
-    const documents: Document[] = ((data.documents as Json[]) ?? []).map((d) => ({
-      code: (d.code as string) ?? null,
-      name: (d.name as string) ?? null,
-      summary: d.summary as string | null,
-      location: d.location as string | null,
-      url: d.url as string | null,
-      rrfScore: d.rrf_score as number | null,
-      maxSimilarity: d.max_similarity as number | null,
-      rerankScore: d.rerank_score as number | null,
-      fs: d.fs as Json | null,
-      chunks: ((d.chunks as Json[]) ?? []).map((c) => ({
-        text: (c.text as string) ?? "",
-        page: c.page as number | null,
-        extra: (c.extra as Json) ?? {},
-      })),
-    }));
-    return {
+    return toSearchResult(data, opts.query);
+  }
+
+  /**
+   * Search with a structured `filter` (`document_types`, `attributes`, `characteristics`). The catalog
+   * codes the filter accepts come from `listDocumentTypes` and `listCharacteristics`.
+   */
+  async searchFiltered(opts: {
+    query: string; filter: Json; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number;
+  }): Promise<SearchResult> {
+    const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
-      totalDocuments: (data.total_documents as number) ?? documents.length,
-      totalChunks: (data.total_chunks as number) ?? 0,
-      durationMs: data.duration_ms as number | null,
-      documents,
-    };
+      filter: opts.filter,
+      limit: opts.limit,
+      min_similarity: opts.minSimilarity,
+      entity_code: opts.entityCode,
+      space_id: opts.spaceId,
+    }))) ?? {};
+    return toSearchResult(data, opts.query);
   }
 
   // ── Working spaces ─────────────────────────────────────────────────────────
@@ -235,6 +259,19 @@ export class RAGfly {
     return this.request("GET", "/v1/catalog", { type: opts.type ?? "ALL" });
   }
 
+  /** Document types of the entity as a tree. Their codes go in `filter.document_types`. */
+  listDocumentTypes(opts: { entityCode?: string } = {}): Promise<Json> {
+    return this.request<Json>("GET", "/v1/catalog/document-types", { entity_code: opts.entityCode });
+  }
+
+  /** Characteristics available for those types (each includes its more specific types). */
+  listCharacteristics(opts: { documentTypes?: string[]; entityCode?: string } = {}): Promise<Json> {
+    return this.request<Json>("GET", "/v1/catalog/characteristics", {
+      document_types: opts.documentTypes?.length ? opts.documentTypes.join(",") : undefined,
+      entity_code: opts.entityCode,
+    });
+  }
+
   /** A function (screen) with its behaviors and the operations it allows. */
   getFunction(opts: { functionCode: string }): Promise<Json> {
     return this.request("GET", `/v1/functions/${segment(opts.functionCode)}`);
@@ -257,12 +294,20 @@ export class RAGfly {
 
   // ── Answers and agents ─────────────────────────────────────────────────────
 
-  /** RAG end to end: retrieve and generate. Reuse `conversationId` to continue. */
-  async ask(opts: { question: string; conversationId?: number; functionCode?: string }): Promise<AskResponse> {
+  /**
+   * RAG end to end: retrieve and generate. Reuse `conversationId` to continue. `mode: "help"`
+   * answers questions about RAGfly itself (how to use or integrate it) instead of searching your
+   * documents, without links to web screens. Left unset the call is the usual document answer.
+   */
+  async ask(opts: { question: string; conversationId?: number; functionCode?: string; mode?: "default" | "help" }): Promise<AskResponse> {
+    if (opts.mode !== undefined && opts.mode !== "default" && opts.mode !== "help") {
+      throw new TypeError("mode must be 'default' or 'help'");
+    }
     const data = (await this.request<Json>("POST", "/v1/ask", {}, compact({
       question: opts.question,
       conversation_id: opts.conversationId,
       function_code: opts.functionCode ?? DEFAULT_FUNCTION,
+      mode: opts.mode,
     }))) ?? {};
     const { answer, conversation_id, ...extra } = data;
     return { answer: (answer as string) ?? "", conversationId: (conversation_id as number) ?? null, extra };

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `ask({ mode: "help" })` answers questions about RAGfly itself (how to use or integrate it), without links to web screens. `mode` is only sent when given.
+- `search({ spaceId })` limits a search to one working space.
+- New `searchFiltered`, `listDocumentTypes` and `listCharacteristics` for the structured `filter` of `/v1/documents/search`.
+
 ## 0.3.0
 
 - Talks only to the English REST `/v1` contract. An API key no longer reaches internal routes, so 0.2.0 stops working with API keys.
