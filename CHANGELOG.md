@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-10-07
 
 - `ask({ mode: "help" })` answers questions about RAGfly itself (how to use or integrate it), without links to web screens. `mode` is only sent when given.
 - `search({ spaceId })` limits a search to one working space.
