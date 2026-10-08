@@ -160,9 +160,43 @@ export class RAGfly {
     });
   }
 
-  /** List documents. `status` in English, e.g. `VECTORIZED`. */
-  listDocuments(opts: { status?: string; limit?: number; page?: number } = {}): Promise<Json> {
-    return this.request("GET", "/v1/documents", { status: opts.status, limit: opts.limit ?? 20, page: opts.page ?? 1 });
+  /** Set an authorized area focus (it also selects its entity); pass `null` to release it. */
+  setActiveArea(opts: { areaCode: string | null }): Promise<Json> {
+    return this.request("POST", "/v1/session/active-area", {}, {
+      area_code: opts.areaCode,
+    });
+  }
+
+  /** Visible organizational areas and the cursor of the next page. */
+  listAreas(opts: { entityCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
+    return this.request("GET", "/v1/areas", {
+      entity_code: opts.entityCode,
+      parent_code: opts.parentCode,
+      query: opts.query,
+      limit: opts.limit ?? 50,
+      cursor: opts.cursor,
+    });
+  }
+
+  /** Visible document folders and the cursor of the next page. Their codes go in `locationCode`. */
+  listLocations(opts: { entityCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
+    return this.request("GET", "/v1/locations", {
+      entity_code: opts.entityCode,
+      parent_code: opts.parentCode,
+      query: opts.query,
+      limit: opts.limit ?? 50,
+      cursor: opts.cursor,
+    });
+  }
+
+  /** List documents. `status` in English, e.g. `VECTORIZED`; `locationCode` keeps one folder subtree. */
+  listDocuments(opts: { status?: string; limit?: number; page?: number; locationCode?: string } = {}): Promise<Json> {
+    return this.request("GET", "/v1/documents", {
+      status: opts.status,
+      limit: opts.limit ?? 20,
+      page: opts.page ?? 1,
+      location_code: opts.locationCode,
+    });
   }
 
   getDocument(opts: { documentCode: string }): Promise<Json> {
@@ -175,15 +209,20 @@ export class RAGfly {
     });
   }
 
-  /** Hybrid semantic search (vector + lexical). */
-  /** Hybrid semantic search (vector + lexical). `spaceId` limits it to one working space. */
-  async search(opts: { query: string; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number }): Promise<SearchResult> {
+  /**
+   * Hybrid semantic search (vector + lexical). `spaceId` limits it to one working space; `locationCode`
+   * to one visible folder subtree, for this request only.
+   */
+  async search(opts: {
+    query: string; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number; locationCode?: string;
+  }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
       limit: opts.limit ?? 10,
       min_similarity: opts.minSimilarity ?? 0,
       entity_code: opts.entityCode,
       space_id: opts.spaceId,
+      location_code: opts.locationCode,
     }))) ?? {};
     return toSearchResult(data, opts.query);
   }
@@ -194,6 +233,7 @@ export class RAGfly {
    */
   async searchFiltered(opts: {
     query: string; filter: Json; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number;
+    locationCode?: string;
   }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
@@ -202,6 +242,7 @@ export class RAGfly {
       min_similarity: opts.minSimilarity,
       entity_code: opts.entityCode,
       space_id: opts.spaceId,
+      location_code: opts.locationCode,
     }))) ?? {};
     return toSearchResult(data, opts.query);
   }
@@ -298,8 +339,11 @@ export class RAGfly {
    * RAG end to end: retrieve and generate. Reuse `conversationId` to continue. `mode: "help"`
    * answers questions about RAGfly itself (how to use or integrate it) instead of searching your
    * documents, without links to web screens. Left unset the call is the usual document answer.
+   * `locationCode` narrows only this request to one visible folder subtree.
    */
-  async ask(opts: { question: string; conversationId?: number; functionCode?: string; mode?: "default" | "help" }): Promise<AskResponse> {
+  async ask(opts: {
+    question: string; conversationId?: number; functionCode?: string; locationCode?: string; mode?: "default" | "help";
+  }): Promise<AskResponse> {
     if (opts.mode !== undefined && opts.mode !== "default" && opts.mode !== "help") {
       throw new TypeError("mode must be 'default' or 'help'");
     }
@@ -307,6 +351,7 @@ export class RAGfly {
       question: opts.question,
       conversation_id: opts.conversationId,
       function_code: opts.functionCode ?? DEFAULT_FUNCTION,
+      location_code: opts.locationCode,
       mode: opts.mode,
     }))) ?? {};
     const { answer, conversation_id, ...extra } = data;

@@ -52,7 +52,7 @@ Create an API key from [app.ragfly.ai](https://app.ragfly.ai) → API Keys. A ke
 
 | Area | Methods |
 |------|---------|
-| Session and documents | `session`, `listDocuments`, `getDocument`, `documentEdges`, `search`, `searchFiltered` |
+| Session and documents | `session`, `setActiveEntity`, `setActiveArea`, `listAreas`, `listLocations`, `listDocuments`, `getDocument`, `documentEdges`, `search`, `searchFiltered` |
 | Working spaces | `listSpaces`, `getSpace`, `refreshSpace`, `promoteSpace`, `composeSpaces`, `readSpace` |
 | Queue, catalog, skills | `queue`, `listRuns`, `catalog`, `listDocumentTypes`, `listCharacteristics`, `getFunction`, `listSkills`, `getSkill`, `runSkill` |
 | Answers and agents | `ask`, `agentContext`, `runAgentTool` |
