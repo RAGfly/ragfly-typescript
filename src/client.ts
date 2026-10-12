@@ -153,14 +153,14 @@ export class RAGfly {
     return this.request("GET", "/v1/session");
   }
 
-  /** Set an authorized entity focus; pass `null` to release it. */
-  setActiveEntity(opts: { entityCode: string | null }): Promise<Json> {
-    return this.request("POST", "/v1/session/active-entity", {}, {
-      entity_code: opts.entityCode,
+  /** Set an authorized workspace focus; pass `null` to release it. */
+  setActiveWorkspace(opts: { workspaceCode: string | null }): Promise<Json> {
+    return this.request("POST", "/v1/session/active-workspace", {}, {
+      workspace_code: opts.workspaceCode,
     });
   }
 
-  /** Set an authorized area focus (it also selects its entity); pass `null` to release it. */
+  /** Set an authorized area focus (it also selects its workspace); pass `null` to release it. */
   setActiveArea(opts: { areaCode: string | null }): Promise<Json> {
     return this.request("POST", "/v1/session/active-area", {}, {
       area_code: opts.areaCode,
@@ -168,9 +168,9 @@ export class RAGfly {
   }
 
   /** Visible organizational areas and the cursor of the next page. */
-  listAreas(opts: { entityCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
+  listAreas(opts: { workspaceCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
     return this.request("GET", "/v1/areas", {
-      entity_code: opts.entityCode,
+      workspace_code: opts.workspaceCode,
       parent_code: opts.parentCode,
       query: opts.query,
       limit: opts.limit ?? 50,
@@ -179,9 +179,9 @@ export class RAGfly {
   }
 
   /** Visible document folders and the cursor of the next page. Their codes go in `locationCode`. */
-  listLocations(opts: { entityCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
+  listLocations(opts: { workspaceCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
     return this.request("GET", "/v1/locations", {
-      entity_code: opts.entityCode,
+      workspace_code: opts.workspaceCode,
       parent_code: opts.parentCode,
       query: opts.query,
       limit: opts.limit ?? 50,
@@ -210,18 +210,18 @@ export class RAGfly {
   }
 
   /**
-   * Hybrid semantic search (vector + lexical). `spaceId` limits it to one working space; `locationCode`
+   * Hybrid semantic search (vector + lexical). `collectionId` limits it to one collection; `locationCode`
    * to one visible folder subtree, for this request only.
    */
   async search(opts: {
-    query: string; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number; locationCode?: string;
+    query: string; limit?: number; minSimilarity?: number; workspaceCode?: string; collectionId?: number; locationCode?: string;
   }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
       limit: opts.limit ?? 10,
       min_similarity: opts.minSimilarity ?? 0,
-      entity_code: opts.entityCode,
-      space_id: opts.spaceId,
+      workspace_code: opts.workspaceCode,
+      collection_id: opts.collectionId,
       location_code: opts.locationCode,
     }))) ?? {};
     return toSearchResult(data, opts.query);
@@ -232,7 +232,7 @@ export class RAGfly {
    * codes the filter accepts come from `listDocumentTypes` and `listCharacteristics`.
    */
   async searchFiltered(opts: {
-    query: string; filter: Json; limit?: number; minSimilarity?: number; entityCode?: string; spaceId?: number;
+    query: string; filter: Json; limit?: number; minSimilarity?: number; workspaceCode?: string; collectionId?: number;
     locationCode?: string;
   }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
@@ -240,45 +240,45 @@ export class RAGfly {
       filter: opts.filter,
       limit: opts.limit,
       min_similarity: opts.minSimilarity,
-      entity_code: opts.entityCode,
-      space_id: opts.spaceId,
+      workspace_code: opts.workspaceCode,
+      collection_id: opts.collectionId,
       location_code: opts.locationCode,
     }))) ?? {};
     return toSearchResult(data, opts.query);
   }
 
-  // ── Working spaces ─────────────────────────────────────────────────────────
+  // ── Collections ─────────────────────────────────────────────────────────
 
-  listSpaces(opts: { limit?: number } = {}): Promise<Json> {
-    return this.request("GET", "/v1/spaces", { limit: opts.limit ?? 20 });
+  listCollections(opts: { limit?: number } = {}): Promise<Json> {
+    return this.request("GET", "/v1/collections", { limit: opts.limit ?? 20 });
   }
 
-  getSpace(opts: { spaceId: number; documentLimit?: number }): Promise<Json> {
-    return this.request("GET", `/v1/spaces/${segment(opts.spaceId)}`, { document_limit: opts.documentLimit ?? 20 });
+  getCollection(opts: { collectionId: number; documentLimit?: number }): Promise<Json> {
+    return this.request("GET", `/v1/collections/${segment(opts.collectionId)}`, { document_limit: opts.documentLimit ?? 20 });
   }
 
-  refreshSpace(opts: { spaceId: number }): Promise<Json> {
-    return this.request("POST", `/v1/spaces/${segment(opts.spaceId)}/refresh`);
+  refreshCollection(opts: { collectionId: number }): Promise<Json> {
+    return this.request("POST", `/v1/collections/${segment(opts.collectionId)}/refresh`);
   }
 
-  promoteSpace(opts: { spaceId: number }): Promise<Json> {
-    return this.request("POST", `/v1/spaces/${segment(opts.spaceId)}/promote`);
+  saveCollection(opts: { collectionId: number }): Promise<Json> {
+    return this.request("POST", `/v1/collections/${segment(opts.collectionId)}/save`);
   }
 
   /** `operation`: union, intersection, difference or symmetric_difference. */
-  composeSpaces(opts: { operation: string; spaceIdA: number; spaceIdB: number; name?: string; spaceType?: string }): Promise<Json> {
-    return this.request("POST", "/v1/spaces/compose", {}, {
+  composeCollections(opts: { operation: string; collectionIdA: number; collectionIdB: number; name?: string; collectionType?: string }): Promise<Json> {
+    return this.request("POST", "/v1/collections/compose", {}, {
       operation: opts.operation,
-      space_id_a: opts.spaceIdA,
-      space_id_b: opts.spaceIdB,
+      collection_id_a: opts.collectionIdA,
+      collection_id_b: opts.collectionIdB,
       name: opts.name ?? "",
-      space_type: opts.spaceType ?? "AREA",
+      collection_type: opts.collectionType ?? "TEMPORARY",
     });
   }
 
   /** `resolution`: count, manifest, chunks or text. */
-  readSpace(opts: { spaceId: number; resolution?: string; query?: string; limit?: number }): Promise<Json> {
-    return this.request("POST", `/v1/spaces/${segment(opts.spaceId)}/read`, {}, {
+  readCollection(opts: { collectionId: number; resolution?: string; query?: string; limit?: number }): Promise<Json> {
+    return this.request("POST", `/v1/collections/${segment(opts.collectionId)}/read`, {}, {
       resolution: opts.resolution ?? "manifest",
       query: opts.query ?? "",
       limit: opts.limit ?? 50,
@@ -300,16 +300,16 @@ export class RAGfly {
     return this.request("GET", "/v1/catalog", { type: opts.type ?? "ALL" });
   }
 
-  /** Document types of the entity as a tree. Their codes go in `filter.document_types`. */
-  listDocumentTypes(opts: { entityCode?: string } = {}): Promise<Json> {
-    return this.request<Json>("GET", "/v1/catalog/document-types", { entity_code: opts.entityCode });
+  /** Document types of the workspace as a tree. Their codes go in `filter.document_types`. */
+  listDocumentTypes(opts: { workspaceCode?: string } = {}): Promise<Json> {
+    return this.request<Json>("GET", "/v1/catalog/document-types", { workspace_code: opts.workspaceCode });
   }
 
   /** Characteristics available for those types (each includes its more specific types). */
-  listCharacteristics(opts: { documentTypes?: string[]; entityCode?: string } = {}): Promise<Json> {
+  listCharacteristics(opts: { documentTypes?: string[]; workspaceCode?: string } = {}): Promise<Json> {
     return this.request<Json>("GET", "/v1/catalog/characteristics", {
       document_types: opts.documentTypes?.length ? opts.documentTypes.join(",") : undefined,
-      entity_code: opts.entityCode,
+      workspace_code: opts.workspaceCode,
     });
   }
 
@@ -326,9 +326,9 @@ export class RAGfly {
     return this.request("GET", `/v1/skills/${segment(opts.skillCode)}`);
   }
 
-  runSkill(opts: { skillCode: string; spaceId?: number; documentCode?: string }): Promise<Json> {
+  runSkill(opts: { skillCode: string; collectionId?: number; documentCode?: string }): Promise<Json> {
     return this.request("POST", `/v1/skills/${segment(opts.skillCode)}/run`, {}, compact({
-      space_id: opts.spaceId,
+      collection_id: opts.collectionId,
       document_code: opts.documentCode,
     }));
   }
@@ -389,31 +389,31 @@ export class RAGfly {
 
   // ── Organization profile ───────────────────────────────────────────────────
 
-  getOrganization(opts: { entityCode?: string } = {}): Promise<Json> {
-    return this.request("GET", "/v1/organization", { entity_code: opts.entityCode });
+  getOrganization(opts: { workspaceCode?: string } = {}): Promise<Json> {
+    return this.request("GET", "/v1/organization", { workspace_code: opts.workspaceCode });
   }
 
   /** Only the fields you pass are written. */
   updateOrganization(opts: {
     groupDescription?: string;
     groupSystemPrompt?: string;
-    entityDescription?: string;
-    entitySystemPrompt?: string;
-    entityCode?: string;
+    workspaceDescription?: string;
+    workspaceSystemPrompt?: string;
+    workspaceCode?: string;
   }): Promise<Json> {
     return this.request("PUT", "/v1/organization", {}, compact({
       group_description: opts.groupDescription,
       group_system_prompt: opts.groupSystemPrompt,
-      entity_description: opts.entityDescription,
-      entity_system_prompt: opts.entitySystemPrompt,
-      entity_code: opts.entityCode,
+      workspace_description: opts.workspaceDescription,
+      workspace_system_prompt: opts.workspaceSystemPrompt,
+      workspace_code: opts.workspaceCode,
     }));
   }
 
-  draftOrganization(opts: { sourceText?: string; entityCode?: string } = {}): Promise<Json> {
+  draftOrganization(opts: { sourceText?: string; workspaceCode?: string } = {}): Promise<Json> {
     return this.request("POST", "/v1/organization/draft", {}, compact({
       source_text: opts.sourceText ?? "",
-      entity_code: opts.entityCode,
+      workspace_code: opts.workspaceCode,
     }));
   }
 
