@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 — 2026-10-13
+
+- Published from GitHub Actions with npm Trusted Publishing (OIDC) and signed provenance; no API changes.
+
 ## 0.6.0 — 2026-10-12
 
 Vocabulary update: the credential's entity is now a **workspace** and a working space is now a **collection**. There are no aliases: the old names are removed.
