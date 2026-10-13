@@ -1,18 +1,28 @@
 name: release
 
-# Publica @ragfly/sdk a npm al pushear un tag vX.Y.Z.
+# Publica @ragfly/sdk a npm al pushear un tag vX.Y.Z, con Trusted Publishing
+# (OIDC): npm valida que la publicación sale de ESTE workflow de ESTE repo, sin
+# token guardado. La procedencia (provenance) se firma sola: repo y paquete son
+# públicos.
+#
 # Forma canónica de release:
 #   1. subir "version" en package.json
 #   2. commit + push
 #   3. git tag vX.Y.Z && git push origin vX.Y.Z
 #
-# Requiere el secret NPM_TOKEN: un Granular Access Token de npm con
-# "Bypass 2FA" y permiso read+write sobre @ragfly/sdk (la cuenta `ragfly`
-# tiene 2FA y npm exige token bypass para publicar headless).
+# Configuración del lado de npm (npmjs.com → @ragfly/sdk → Settings → Trusted
+# publishing): GitHub Actions · RAGfly · ragfly-typescript · release.yml, con
+# `npm publish` permitido. Si se renombra este archivo, hay que borrar y volver a
+# crear esa conexión (el nombre se compara exacto). Requiere npm >= 11.5.1 y
+# Node >= 22.14; los runners self-hosted no sirven.
 on:
   push:
     tags:
       - "v*"
+
+permissions:
+  id-token: write   # OIDC: lo exige Trusted Publishing
+  contents: read
 
 jobs:
   build-and-publish:
@@ -20,10 +30,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
+          # Sin caché en un build de release (recomendación de npm).
+          package-manager-cache: false
+
+      - name: npm con soporte de Trusted Publishing
+        run: |
+          npm install -g npm@11
+          npm --version
 
       - name: Verificar que el tag coincide con la versión del paquete
         run: |
@@ -40,7 +57,5 @@ jobs:
           npm ci
           npm run build
 
-      - name: Publish to npm
+      - name: Publish to npm (OIDC, sin token)
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
