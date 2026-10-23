@@ -5,6 +5,7 @@
   "cases": [
     {"method": "session", "args": {}, "request": {"method": "GET", "path": "/v1/session", "query": {}, "body": null}},
     {"method": "set_active_workspace", "args": {"workspace_code": null}, "request": {"method": "POST", "path": "/v1/session/active-workspace", "query": {}, "body": {"workspace_code": null}}},
+    {"method": "unset_active_workspace", "args": {}, "request": {"method": "DELETE", "path": "/v1/session/active-workspace", "query": {}, "body": null}},
     {"method": "set_active_area", "args": {"area_code": null}, "request": {"method": "POST", "path": "/v1/session/active-area", "query": {}, "body": {"area_code": null}}},
     {"method": "list_areas", "args": {"workspace_code": "E1", "parent_code": "A1", "query": "finance", "limit": 10, "cursor": "opaque"}, "request": {"method": "GET", "path": "/v1/areas", "query": {"workspace_code": "E1", "parent_code": "A1", "query": "finance", "limit": "10", "cursor": "opaque"}, "body": null}},
     {"method": "list_locations", "args": {"workspace_code": "E1", "parent_code": "L1", "query": "contracts", "limit": 10, "cursor": "opaque"}, "request": {"method": "GET", "path": "/v1/locations", "query": {"workspace_code": "E1", "parent_code": "L1", "query": "contracts", "limit": "10", "cursor": "opaque"}, "body": null}},

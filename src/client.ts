@@ -160,6 +160,11 @@ export class RAGfly {
     });
   }
 
+  /** Release the workspace focus (same as `setActiveWorkspace({ workspaceCode: null })`); a fixed-workspace key cannot. */
+  unsetActiveWorkspace(): Promise<Json> {
+    return this.request("DELETE", "/v1/session/active-workspace");
+  }
+
   /** Set an authorized area focus (it also selects its workspace); pass `null` to release it. */
   setActiveArea(opts: { areaCode: string | null }): Promise<Json> {
     return this.request("POST", "/v1/session/active-area", {}, {

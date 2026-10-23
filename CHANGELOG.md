@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 — 2026-10-23
+
+- New `unsetActiveWorkspace()`: releases the workspace focus of a flexible key (`DELETE /v1/session/active-workspace`), the same as `setActiveWorkspace({ workspaceCode: null })`. A fixed-workspace key cannot release its workspace. Requires a RAGfly Cloud that serves that route.
+
 ## 0.6.1 — 2026-10-13
 
 - Published from GitHub Actions with npm Trusted Publishing (OIDC) and signed provenance; no API changes.
