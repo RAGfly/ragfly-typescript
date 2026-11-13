@@ -4,6 +4,7 @@
   "client_header": {"name": "X-RAGfly-Client", "python": "sdk-python", "typescript": "sdk-typescript"},
   "cases": [
     {"method": "session", "args": {}, "request": {"method": "GET", "path": "/v1/session", "query": {}, "body": null}},
+    {"method": "list_destinations", "args": {}, "request": {"method": "GET", "path": "/v1/destinations", "query": {}, "body": null}},
     {"method": "set_active_workspace", "args": {"workspace_code": null}, "request": {"method": "POST", "path": "/v1/session/active-workspace", "query": {}, "body": {"workspace_code": null}}},
     {"method": "unset_active_workspace", "args": {}, "request": {"method": "DELETE", "path": "/v1/session/active-workspace", "query": {}, "body": null}},
     {"method": "set_active_area", "args": {"area_code": null}, "request": {"method": "POST", "path": "/v1/session/active-area", "query": {}, "body": {"area_code": null}}},
@@ -18,6 +19,7 @@
     {"method": "refresh_collection", "args": {"collection_id": 12}, "request": {"method": "POST", "path": "/v1/collections/12/refresh", "query": {}, "body": null}},
     {"method": "save_collection", "args": {"collection_id": 12}, "request": {"method": "POST", "path": "/v1/collections/12/save", "query": {}, "body": null}},
     {"method": "compose_collections", "args": {"operation": "union", "collection_id_a": 1, "collection_id_b": 2, "name": "A or B", "collection_type": "SAVED"}, "request": {"method": "POST", "path": "/v1/collections/compose", "query": {}, "body": {"operation": "union", "collection_id_a": 1, "collection_id_b": 2, "name": "A or B", "collection_type": "SAVED"}}},
+    {"method": "save_search_as_collection", "args": {"query": "supplier contracts", "max_documents": 50, "name": "Suppliers", "collection_type": "SAVED"}, "request": {"method": "POST", "path": "/v1/collections/from-search", "query": {}, "body": {"query": "supplier contracts", "max_documents": 50, "name": "Suppliers", "collection_type": "SAVED"}}},
     {"method": "read_collection", "args": {"collection_id": 12, "resolution": "chunks", "query": "terms", "limit": 9}, "request": {"method": "POST", "path": "/v1/collections/12/read", "query": {}, "body": {"resolution": "chunks", "query": "terms", "limit": 9}}},
     {"method": "queue", "args": {"process": "P1", "status": "PENDING", "limit": 4}, "request": {"method": "GET", "path": "/v1/queue", "query": {"process": "P1", "status": "PENDING", "limit": "4"}, "body": null}},
     {"method": "list_runs", "args": {"limit": 2}, "request": {"method": "GET", "path": "/v1/runs", "query": {"limit": "2"}, "body": null}},
@@ -43,6 +45,8 @@
     {"method": "update_process", "args": {"process_code": "338532", "priority": "HIGH", "comments": "Checked"}, "request": {"method": "PATCH", "path": "/v1/processes/338532", "query": {}, "body": {"priority": "HIGH", "comments": "Checked"}}},
     {"method": "list_operations", "args": {}, "request": {"method": "GET", "path": "/v1/operations", "query": {}, "body": null}},
     {"method": "get_operation", "args": {"code": "document_types.update"}, "request": {"method": "GET", "path": "/v1/operations/document_types.update", "query": {}, "body": null}},
-    {"method": "run_operation", "args": {"code": "document_types.delete", "input": {"code": "TDOC_1"}, "confirm": true}, "request": {"method": "POST", "path": "/v1/operations/document_types.delete:execute", "query": {}, "body": {"input": {"code": "TDOC_1"}, "confirm": true}}}
+    {"method": "run_operation", "args": {"code": "document_types.delete", "input": {"code": "TDOC_1"}, "confirm": true}, "request": {"method": "POST", "path": "/v1/operations/document_types.delete:execute", "query": {}, "body": {"input": {"code": "TDOC_1"}, "confirm": true}}},
+    {"method":"ingest_public_url","args":{"url":"https://docs.example.com/report.pdf","idempotency_key":"stable-key","confirm_public_content":true,"workspace_code":"E1"},"request":{"method":"POST","path":"/v1/documents/public-url","query":{},"body":{"url":"https://docs.example.com/report.pdf","confirm_public_content":true,"workspace_code":"E1"}}},
+    {"method":"public_url_ingestion_status","args":{"process_code":"P-123"},"request":{"method":"GET","path":"/v1/documents/public-url/P-123","query":{},"body":null}}
   ]
 }

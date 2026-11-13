@@ -52,13 +52,15 @@ Create an API key from [app.ragfly.ai](https://app.ragfly.ai) → API Keys. A ke
 
 | Area | Methods |
 |------|---------|
-| Session and documents | `session`, `setActiveWorkspace`, `unsetActiveWorkspace`, `setActiveArea`, `listAreas`, `listLocations`, `listDocuments`, `getDocument`, `documentEdges`, `search`, `searchFiltered` |
-| Collections | `listCollections`, `getCollection`, `refreshCollection`, `saveCollection`, `composeCollections`, `readCollection` |
+| Session and documents | `session`, `setActiveWorkspace`, `unsetActiveWorkspace`, `setActiveArea`, `listAreas`, `listDestinations`, `listLocations`, `listDocuments`, `getDocument`, `documentEdges`, `ingestPublicUrl`, `publicUrlIngestionStatus`, `search`, `searchFiltered` |
+| Collections | `listCollections`, `getCollection`, `refreshCollection`, `saveCollection`, `composeCollections`, `saveSearchAsCollection`, `readCollection` |
 | Queue, catalog, skills | `queue`, `listRuns`, `catalog`, `listDocumentTypes`, `listCharacteristics`, `getFunction`, `listSkills`, `getSkill`, `runSkill` |
 | Answers and agents | `ask`, `agentContext`, `runAgentTool` |
 | Organization | `getOrganization`, `updateOrganization`, `draftOrganization` |
 | Usage, conversations, processes | `getUsage`, `listConversations`, `deleteConversation`, `listProcesses`, `getProcess`, `updateProcess` |
 | Operations | `listOperations`, `getOperation`, `runOperation` |
+
+`listDestinations()` lists published corpora available to the organization. Pass a `destination` object to `search` or `ask`, for example `{ module: "regulation", country: "CL" }`. The API validates incompatible filters and conversation destination changes.
 
 ## Options
 
