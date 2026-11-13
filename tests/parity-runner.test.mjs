@@ -35,8 +35,25 @@ for (const c of CASES.cases) {
     assert.deepEqual(init.body === undefined ? null : JSON.parse(init.body), c.request.body);
     assert.equal(init.headers.Authorization, "Bearer rf_test");
     assert.equal(init.headers[CASES.client_header.name], CASES.client_header.typescript);
+    if (c.method === "ingest_public_url") assert.equal(init.headers["Idempotency-Key"], c.args.idempotency_key);
   });
 }
+
+test("destination is forwarded to search and ask", async () => {
+  const calls = [];
+  const sdk = client({}, calls);
+  const destination = { module: "regulation", country: "CL", workspace_code: "W" };
+  await sdk.search({ query: "query", destination });
+  await sdk.ask({ question: "question", destination });
+  assert.deepEqual(calls.map(({ init }) => JSON.parse(init.body).destination), [destination, destination]);
+});
+
+test("collection from search matches API defaults", async () => {
+  const calls = [];
+  await client({}, calls).saveSearchAsCollection({ query: "query", locationCode: "L1" });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { query: "query", max_documents: 100, name: "",
+    collection_type: "SAVED", location_code: "L1" });
+});
 
 test("every public method has a parity case", () => {
   const methods = Object.getOwnPropertyNames(RAGfly.prototype).filter((n) => n !== "constructor" && n !== "request");

@@ -100,7 +100,7 @@ export class RAGfly {
 
   // ── Transport ──────────────────────────────────────────────────────────────
 
-  private async request<T>(method: string, path: string, query: Query = {}, body?: Body): Promise<T> {
+  private async request<T>(method: string, path: string, query: Query = {}, body?: Body, headers: Record<string, string> = {}): Promise<T> {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null) params.set(key, String(value));
@@ -117,6 +117,7 @@ export class RAGfly {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
           ...CLIENT_HEADER,
+          ...headers,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
@@ -172,6 +173,11 @@ export class RAGfly {
     });
   }
 
+  /** List published corpora available to the organization. */
+  listDestinations(): Promise<Json> {
+    return this.request("GET", "/v1/destinations");
+  }
+
   /** Visible organizational areas and the cursor of the next page. */
   listAreas(opts: { workspaceCode?: string; parentCode?: string; query?: string; limit?: number; cursor?: string } = {}): Promise<Json> {
     return this.request("GET", "/v1/areas", {
@@ -214,12 +220,23 @@ export class RAGfly {
     });
   }
 
+  /** Start ingestion of a publicly accessible URL with an idempotency key. */
+  ingestPublicUrl(opts: { url: string; idempotencyKey: string; confirmPublicContent?: boolean; workspaceCode?: string }): Promise<Json> {
+    return this.request("POST", "/v1/documents/public-url", {}, compact({ url: opts.url,
+      confirm_public_content: opts.confirmPublicContent ?? false, workspace_code: opts.workspaceCode }),
+      { "Idempotency-Key": opts.idempotencyKey });
+  }
+
+  publicUrlIngestionStatus(opts: { processCode: string }): Promise<Json> {
+    return this.request("GET", `/v1/documents/public-url/${segment(opts.processCode)}`);
+  }
+
   /**
    * Hybrid semantic search (vector + lexical). `collectionId` limits it to one collection; `locationCode`
    * to one visible folder subtree, for this request only.
    */
   async search(opts: {
-    query: string; limit?: number; minSimilarity?: number; workspaceCode?: string; collectionId?: number; locationCode?: string;
+    query: string; limit?: number; minSimilarity?: number; workspaceCode?: string; collectionId?: number; locationCode?: string; destination?: Json;
   }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
@@ -228,6 +245,7 @@ export class RAGfly {
       workspace_code: opts.workspaceCode,
       collection_id: opts.collectionId,
       location_code: opts.locationCode,
+      destination: opts.destination,
     }))) ?? {};
     return toSearchResult(data, opts.query);
   }
@@ -268,6 +286,13 @@ export class RAGfly {
 
   saveCollection(opts: { collectionId: number }): Promise<Json> {
     return this.request("POST", `/v1/collections/${segment(opts.collectionId)}/save`);
+  }
+
+  saveSearchAsCollection(opts: { query: string; maxDocuments?: number; name?: string; collectionType?: string;
+    collectionId?: number; filter?: Json; locationCode?: string }): Promise<Json> {
+    return this.request("POST", "/v1/collections/from-search", {}, compact({ query: opts.query, max_documents: opts.maxDocuments ?? 100,
+      name: opts.name ?? "", collection_type: opts.collectionType ?? "SAVED", collection_id: opts.collectionId,
+      filter: opts.filter, location_code: opts.locationCode }));
   }
 
   /** `operation`: union, intersection, difference or symmetric_difference. */
@@ -347,7 +372,7 @@ export class RAGfly {
    * `locationCode` narrows only this request to one visible folder subtree.
    */
   async ask(opts: {
-    question: string; conversationId?: number; functionCode?: string; locationCode?: string; mode?: "default" | "help";
+    question: string; conversationId?: number; functionCode?: string; locationCode?: string; mode?: "default" | "help"; destination?: Json;
   }): Promise<AskResponse> {
     if (opts.mode !== undefined && opts.mode !== "default" && opts.mode !== "help") {
       throw new TypeError("mode must be 'default' or 'help'");
@@ -358,6 +383,7 @@ export class RAGfly {
       function_code: opts.functionCode ?? DEFAULT_FUNCTION,
       location_code: opts.locationCode,
       mode: opts.mode,
+      destination: opts.destination,
     }))) ?? {};
     const { answer, conversation_id, ...extra } = data;
     return { answer: (answer as string) ?? "", conversationId: (conversation_id as number) ?? null, extra };
