@@ -40,8 +40,7 @@ for (const c of CASES.cases) {
 
 test("every public method has a parity case", () => {
   const methods = Object.getOwnPropertyNames(RAGfly.prototype).filter((n) => n !== "constructor" && n !== "request");
-  // A method may have several cases (e.g. search with and without a destination): at least one each.
-  const covered = new Set(CASES.cases.map((c) => camel(c.method)));
+  const covered = CASES.cases.map((c) => camel(c.method));
   assert.deepEqual([...methods].sort(), [...covered].sort());
 });
 
