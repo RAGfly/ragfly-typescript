@@ -73,6 +73,19 @@ function toSearchResult(data: Json, query: string): SearchResult {
   };
 }
 
+/** Where a query reads: your own documents (default) or a published corpus such as a country's regulation. */
+export interface Destination {
+  module: "private" | "regulation";
+  country?: string;
+  workspaceCode?: string;
+  areaCode?: string;
+}
+
+function wireDestination(d?: Destination): Json | undefined {
+  if (!d) return undefined;
+  return compact({ module: d.module, country: d.country, workspace_code: d.workspaceCode, area_code: d.areaCode });
+}
+
 export class RAGfly {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -216,10 +229,13 @@ export class RAGfly {
 
   /**
    * Hybrid semantic search (vector + lexical). `collectionId` limits it to one collection; `locationCode`
-   * to one visible folder subtree, for this request only.
+   * to one visible folder subtree, for this request only. `destination` reads a published corpus instead
+   * of your documents, e.g. `{ module: "regulation", country: "CL" }` (see `listDestinations`). Usage stays
+   * in your organization.
    */
   async search(opts: {
     query: string; limit?: number; minSimilarity?: number; workspaceCode?: string; collectionId?: number; locationCode?: string;
+    destination?: Destination;
   }): Promise<SearchResult> {
     const data = (await this.request<Json>("POST", "/v1/documents/search", {}, compact({
       query: opts.query,
@@ -228,8 +244,17 @@ export class RAGfly {
       workspace_code: opts.workspaceCode,
       collection_id: opts.collectionId,
       location_code: opts.locationCode,
+      destination: wireDestination(opts.destination),
     }))) ?? {};
     return toSearchResult(data, opts.query);
+  }
+
+  /**
+   * Published corpora you can read with `destination` (e.g. Chilean regulation), their regulatory areas,
+   * and whether reading them is enabled for your organization.
+   */
+  listDestinations(): Promise<Json> {
+    return this.request<Json>("GET", "/v1/destinations");
   }
 
   /**
@@ -344,10 +369,12 @@ export class RAGfly {
    * RAG end to end: retrieve and generate. Reuse `conversationId` to continue. `mode: "help"`
    * answers questions about RAGfly itself (how to use or integrate it) instead of searching your
    * documents, without links to web screens. Left unset the call is the usual document answer.
-   * `locationCode` narrows only this request to one visible folder subtree.
+   * `locationCode` narrows only this request to one visible folder subtree. `destination` answers from a
+   * published corpus; the conversation is bound to it, so reuse `conversationId` only with the same one.
    */
   async ask(opts: {
     question: string; conversationId?: number; functionCode?: string; locationCode?: string; mode?: "default" | "help";
+    destination?: Destination;
   }): Promise<AskResponse> {
     if (opts.mode !== undefined && opts.mode !== "default" && opts.mode !== "help") {
       throw new TypeError("mode must be 'default' or 'help'");
@@ -358,6 +385,7 @@ export class RAGfly {
       function_code: opts.functionCode ?? DEFAULT_FUNCTION,
       location_code: opts.locationCode,
       mode: opts.mode,
+      destination: wireDestination(opts.destination),
     }))) ?? {};
     const { answer, conversation_id, ...extra } = data;
     return { answer: (answer as string) ?? "", conversationId: (conversation_id as number) ?? null, extra };

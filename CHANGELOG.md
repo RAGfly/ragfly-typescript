@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `search()` and `ask()` accept `destination` to read a published corpus instead of your own documents, e.g. `destination: { module: "regulation", country: "CL" }` (optional `workspaceCode`, `areaCode`). An `ask` conversation is bound to its destination. Usage stays in your organization. Errors: `PUBLIC_READ_DISABLED` (403), `DESTINATION_NOT_FOUND` (404), `INVALID_DESTINATION` (400), `CONVERSATION_DESTINATION_MISMATCH` (409).
+- New `listDestinations()`: published corpora, their regulatory areas, and whether reading them is enabled for your organization. Requires a RAGfly Cloud that serves `GET /v1/destinations`.
+
 ## 0.7.0 — 2026-10-23
 
 - New `unsetActiveWorkspace()`: releases the workspace focus of a flexible key (`DELETE /v1/session/active-workspace`), the same as `setActiveWorkspace({ workspaceCode: null })`. A fixed-workspace key cannot release its workspace. Requires a RAGfly Cloud that serves that route.
